@@ -86,8 +86,9 @@ async function waitForPort(port, maxWaitMs = 30000) {
     return false;
 }
 
-const pythonDir = path.resolve(__dirname, '../servers/python/');
-const exampleDir = path.resolve(pythonDir, 'example/fastapi/');
+const rootDir = path.resolve(__dirname, '..');
+const pythonDir = path.join(rootDir, 'servers', 'python');
+const exampleDir = path.join(pythonDir, 'example', 'fastapi');
 const venvDir = path.join(exampleDir, 'build_and_test_venv');
 const isWin = process.platform === 'win32';
 const pyBin = isWin ? path.join(venvDir, 'Scripts', 'python.exe') : path.join(venvDir, 'bin', 'python');
@@ -97,32 +98,17 @@ const servers = [
         name: "Python FastAPI",
         setup: async () => {
             console.log("Setting up Python virtual environment...");
-            console.log(`Debug: venvDir=${venvDir}`);
-            console.log(`Debug: pythonDir=${pythonDir}`);
-            console.log(`Debug: exampleDir=${exampleDir}`);
             const { execSync } = require('child_process');
             if (require('fs').existsSync(venvDir)) {
                 require('fs').rmSync(venvDir, { recursive: true, force: true });
             }
             execSync(`python -m venv "${venvDir}"`);
-            console.log(`Debug: pyBin=${pyBin}`);
-            console.log(`Debug: exampleDir content=${require('fs').readdirSync(exampleDir).join(', ')}`);
             execSync(`"${pyBin}" -m pip install --quiet -e "${pythonDir}[test]"`);
-            console.log("Verifying server import...");
-            try {
-                execSync(`"${pyBin}" -c "import server"`, { cwd: exampleDir });
-                console.log("Server import successful.");
-            } catch (e) {
-                console.error("Server import FAILED. Traceback:");
-                console.error(e.stdout?.toString());
-                console.error(e.stderr?.toString());
-                throw e;
-            }
         },
         cmd: pyBin,
-        args: ['-m', 'uvicorn', 'server:app', '--port', '8081'],
+        args: ['-m', 'uvicorn', 'server:app', '--host', '127.0.0.1', '--port', '8081'],
         cwd: exampleDir,
-        env: {},
+        env: { PYTHONPATH: exampleDir },
         port: 8081,
         bootTime: 12000,
         teardown: () => {
