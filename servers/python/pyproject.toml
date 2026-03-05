@@ -21,7 +21,7 @@ Repository = "https://github.com/Simon-Bertrand/POWChallenge"
 
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-asyncio", "fastapi", "uvicorn[standard]", "httpx"]
+test = ["pytest", "pytest-asyncio", "fastapi", "uvicorn[standard]", "httpx", "aiofiles"]
 
 [build-system]
 requires = ["hatchling"]
