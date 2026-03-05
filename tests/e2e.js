@@ -86,8 +86,9 @@ async function waitForPort(port, maxWaitMs = 30000) {
     return false;
 }
 
-const pythonDir = path.resolve(__dirname, '../servers/python/example/fastapi/');
-const venvDir = path.join(pythonDir, 'build_and_test_venv');
+const pythonDir = path.resolve(__dirname, '../servers/python/');
+const exampleDir = path.resolve(pythonDir, 'example/fastapi/');
+const venvDir = path.join(exampleDir, 'build_and_test_venv');
 const isWin = process.platform === 'win32';
 const pyBin = isWin ? path.join(venvDir, 'Scripts', 'python.exe') : path.join(venvDir, 'bin', 'python');
 
@@ -101,12 +102,11 @@ const servers = [
                 require('fs').rmSync(venvDir, { recursive: true, force: true });
             }
             execSync(`python -m venv "${venvDir}"`);
-            const pythonServerDir = path.resolve(__dirname, '../servers/python');
-            execSync(`"${pyBin}" -m pip install --quiet -e "${pythonServerDir}[test]"`);
+            execSync(`"${pyBin}" -m pip install --quiet -e "${pythonDir}[test]"`);
         },
         cmd: pyBin,
         args: ['-m', 'uvicorn', 'server:app', '--port', '8081'],
-        cwd: pythonDir,
+        cwd: exampleDir,
         env: {},
         port: 8081,
         bootTime: 12000,
