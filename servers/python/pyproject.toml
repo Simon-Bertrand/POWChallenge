@@ -1,0 +1,31 @@
+[project]
+name = "powchallenge_server"
+version = "1.0.0"
+description = "Server validation library for the POW Captcha ecosystem."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Simon Bertrand"}]
+keywords = ["pow", "captcha", "security", "bot-protection", "argon2id"]
+dependencies = [
+    "pydantic-settings",
+    "orjson",
+    "pydantic",
+    "uuid7",
+    "argon2-cffi"
+]
+
+[project.urls]
+Homepage = "https://github.com/Simon-Bertrand/POWChallenge"
+Repository = "https://github.com/Simon-Bertrand/POWChallenge"
+
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-asyncio", "fastapi", "uvicorn[standard]", "httpx"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["powchallenge_server"]

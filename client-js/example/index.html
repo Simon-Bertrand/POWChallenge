@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebCrypto SHA-256</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        input {
+            padding: 8px;
+            width: 300px;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+
+        .hash-value {
+            font-family: monospace;
+            font-weight: bold;
+            color: #d03030;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Calcul SHA-256 et Preuve de Travail (POW)</h1>
+    <p>Ce calcul est effectué directement dans le navigateur en utilisant l'API <strong>WebCrypto</strong>.
+        Le test va incrémenter un nonce jusqu'à trouver un hash vérifiant la difficulté donnée.</p>
+
+    <label for="inputChallenge">Challenge (Texte) :</label>
+    <input type="text" id="inputChallenge" placeholder="Entrez le challenge initial">
+    <br><br>
+
+    <label for="leadingZeros">Difficulté (Bits nuls en préfixe) :</label>
+    <input type="number" id="leadingZeros" value="8" min="1" max="256" style="width: 80px;">
+    <br><br>
+
+    <button id="mineBtn">Miner la preuve de travail</button>
+
+    <div class="result-box">
+        <strong>État :</strong> <br>
+        <span id="resultState" class="hash-value">En attente...</span><br><br>
+
+        <strong>Nonce trouvé (Hex) :</strong> <br>
+        <span id="resultNonce" class="hash-value">-</span><br><br>
+
+
+
+        <strong>Hash valide (Hex) :</strong> <br>
+        <span id="resultHex" class="hash-value">-</span><br><br>
+
+        <strong>Hash valide (Bits) :</strong> <br>
+        <span id="resultHexBits" class="hash-value" style="font-size: 0.85em; word-break: break-all;">-</span>
+    </div>
+
+    <!-- Importation du script minifié sans serveur (IIFE format bundle) -->
+    <script src="dist/bundle.min.js"></script>
+
+    <script>
+        // Convertit un Uint8Array en chaîne Hexadécimale (Little Endian -> lisible)
+        function toHex(buffer) {
+            return Array.from(buffer).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Convertit un Uint8Array en chaîne Binaire (Bits)
+        function toBits(buffer) {
+            return Array.from(buffer).map(b => b.toString(2).padStart(8, '0')).join(' ');
+        }
+
+        let currentWorker = null;
+
+        document.getElementById('mineBtn').addEventListener('click', async () => {
+            const inputElement = document.getElementById('inputChallenge');
+            const resultState = document.getElementById('resultState');
+            const resultNonce = document.getElementById('resultNonce');
+            const resultHex = document.getElementById('resultHex');
+            const resultHexBits = document.getElementById('resultHexBits');
+            const difficulty = parseInt(document.getElementById('leadingZeros').value, 10);
+
+            const challengeText = inputElement.value;
+
+            if (!challengeText) {
+                resultState.textContent = "Veuillez entrer un challenge.";
+                return;
+            }
+
+            // Si un minage est déjà en cours, on l'annule
+            if (currentWorker) {
+                currentWorker.terminate();
+            }
+
+            resultState.textContent = "Minage en cours... (en arrière-plan)";
+            resultState.style.color = 'orange';
+            resultNonce.textContent = "-";
+            resultHex.textContent = "-";
+            resultHexBits.textContent = "-";
+
+            const encoder = new TextEncoder();
+            const challengeBytes = encoder.encode(challengeText);
+
+            const baseUrl = window.location.href.replace(/[^/]*$/, ''); // Get current folder URL
+
+            // Création du Web Worker métier via un Blob URL
+            const workerCode = `
+                // Importation du bundle de l'API cliente via l'URL absolue passée par le script principal
+                importScripts('${baseUrl}dist/bundle.min.js');
+
+                self.onmessage = async function(e) {
+                    const { challengeBytes, difficulty } = e.data;
+                    
+                    const startingNonce = new Uint8Array(32);
+                    
+                    try {
+                        const pow = new self.WebCryptoHash.ProofOfWork();
+
+                        // Le module WebCryptoHash est chargé par l'importScripts plus haut
+                        const winningNonce = await pow.minePOW(challengeBytes, startingNonce, difficulty);
+                        
+                        // Calcul du hash final à renvoyer avec le nonce gagnant
+                        const combined = new Uint8Array(challengeBytes.length + winningNonce.length);
+                        combined.set(challengeBytes, 0);
+                        combined.set(winningNonce, challengeBytes.length);
+                        const finalHash = await pow.sha256(combined.buffer);
+
+                        self.postMessage({ 
+                            success: true, 
+                            winningNonce,
+                            finalHash
+                        });
+                    } catch (err) {
+                        self.postMessage({ success: false, error: err.message });
+                    }
+                }
+            `;
+
+            // Lancement via Blob
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            currentWorker = new Worker(URL.createObjectURL(blob));
+
+            const t0 = performance.now();
+
+            currentWorker.onmessage = function (e) {
+                const data = e.data;
+                const t1 = performance.now();
+
+                if (data.success) {
+                    resultState.textContent = `Succès en ${Math.round(t1 - t0)}ms !`;
+                    resultState.style.color = 'green';
+
+                    resultNonce.textContent = toHex(data.winningNonce);
+                    resultHex.textContent = toHex(data.finalHash);
+                    resultHexBits.textContent = toBits(data.finalHash);
+                } else {
+                    resultState.textContent = "Erreur: " + data.error;
+                    resultState.style.color = 'red';
+                }
+
+                // Nettoyage
+                currentWorker.terminate();
+                currentWorker = null;
+            };
+
+            currentWorker.onerror = function (err) {
+                console.error("Erreur Worker:", err);
+                resultState.textContent = "Erreur Worker (voir console). Assurez-vous d'être sur un serveur local HTTP.";
+                resultState.style.color = 'red';
+
+                currentWorker.terminate();
+                currentWorker = null;
+            };
+
+            // On lance le travail !
+            currentWorker.postMessage({ challengeBytes, difficulty });
+        });
+    </script>
+</body>
+
+</html>

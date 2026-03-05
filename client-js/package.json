@@ -1,0 +1,41 @@
+{
+    "name": "powchallenge_client",
+    "version": "1.0.0",
+    "description": "POW Captcha client library using Argon2id (WASM)",
+    "main": "dist/bundle.min.js",
+    "files": [
+        "dist"
+    ],
+    "exports": {
+        ".": {
+            "require": "./dist/bundle.min.js",
+            "default": "./dist/bundle.min.js"
+        }
+    },
+    "scripts": {
+        "build": "webpack --config webpack.config.js",
+        "dev": "webpack --config webpack.config.js --mode development --watch"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Simon-Bertrand/POWChallenge.git"
+    },
+    "keywords": [
+        "pow",
+        "captcha",
+        "client",
+        "webworker",
+        "argon2id"
+    ],
+    "author": "Simon Bertrand",
+    "license": "MIT",
+    "devDependencies": {
+        "ts-loader": "^9.5.4",
+        "typescript": "^5.9.3",
+        "webpack": "^5.105.3",
+        "webpack-cli": "^6.0.1"
+    },
+    "dependencies": {
+        "argon2-browser": "^1.18.0"
+    }
+}

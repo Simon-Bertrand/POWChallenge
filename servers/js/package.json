@@ -1,0 +1,41 @@
+{
+  "name": "powchallenge_server",
+  "version": "1.0.0",
+  "description": "Server validation library for the POW Captcha ecosystem.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Simon-Bertrand/POWChallenge.git"
+  },
+  "keywords": [
+    "pow",
+    "captcha",
+    "bot-protection",
+    "argon2id",
+    "security"
+  ],
+  "author": "Simon Bertrand",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "ioredis": "^5.10.0",
+    "ip-address": "^10.1.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/ioredis": "^4.28.10",
+    "@types/node": "^20.19.35",
+    "@types/uuid": "^10.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
