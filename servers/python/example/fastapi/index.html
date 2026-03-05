@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>POW Validation Tester</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            min-height: 200px;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>FastAPI POW Caps Tester</h1>
+    <button id="runBtn">Generate Challenge & Solve</button>
+    <pre id="output"></pre>
+
+    <script>
+        // Cache buster for the bundle
+        document.write('<script src="/js/bundle.min.js?v=' + Date.now() + '"><\/script>');
+    </script>
+    <script>
+        function log(msg) {
+            const out = document.getElementById("output");
+            out.innerText += msg + "\n";
+            out.scrollTop = out.scrollHeight;
+        }
+
+        // Handle Base64-url encoding used by pydantic
+        function base64ToUint8Array(base64) {
+            base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+            // Pad if necessary
+            while (base64.length % 4) {
+                base64 += '=';
+            }
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        function uint8ArrayToBase64Url(bytes) {
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            let standardBase64 = window.btoa(binary);
+            return standardBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+
+        document.getElementById("runBtn").onclick = async function () {
+            let btn = document.getElementById("runBtn");
+            if (btn.disabled) return;
+            btn.disabled = true;
+
+            try {
+                log("============================");
+                log("Fetching challenge from server...");
+                let res = await fetch("/challenge");
+
+                if (!res.ok) {
+                    log("Error fetching challenge: " + res.status);
+                    btn.disabled = false;
+                    return;
+                }
+
+                let data = await res.json();
+                log("Challenge data: " + JSON.stringify(data, null, 2));
+
+                let req_id = data.req_id;
+                let challengeBase64 = data.challenge;
+                let difficulty = data.difficulty;
+
+                let challengeBytes = base64ToUint8Array(challengeBase64);
+
+                log("Solving test (difficulty " + difficulty + ")...");
+                let startTime = performance.now();
+
+                let pow = new WebCryptoHash.ProofOfWork();
+                let nonce = new Uint8Array(32);
+                window.crypto.getRandomValues(nonce);
+
+                // Mine POW using the compiled client lib
+                let solvedNonce = await pow.minePOW(challengeBytes, nonce, difficulty);
+
+                let timeTaken = (performance.now() - startTime).toFixed(2);
+                log("[SUCCESS] Solved in " + timeTaken + "ms");
+
+                let verifyPayload = {
+                    req_id: req_id,
+                    challenge: challengeBase64,
+                    timestamp: new Date().toISOString(),
+                    difficulty: difficulty,
+                    nonce: uint8ArrayToBase64Url(solvedNonce)
+                };
+
+                log("Submitting solution...");
+                let verifyStart = performance.now();
+                let verifyRes = await fetch("/verify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(verifyPayload)
+                });
+                let verifyTime = (performance.now() - verifyStart).toFixed(2);
+                log(`Verification took ${verifyTime}ms`);
+
+                if (verifyRes.ok) {
+                    let result = await verifyRes.json();
+                    log("🎉 Success: " + JSON.stringify(result)); // Keep 🎉 since the user only mentioned checkmarks and crosses
+                } else {
+                    let err = await verifyRes.text();
+                    log("[FAILED] Error from server: " + err);
+                }
+
+            } catch (e) {
+                log("Exception: " + e.message);
+            }
+            btn.disabled = false;
+        };
+    </script>
+</body>
+
+</html>
