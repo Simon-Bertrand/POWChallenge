@@ -86,9 +86,7 @@ async function waitForPort(port, maxWaitMs = 30000) {
     return false;
 }
 
-const rootDir = path.resolve(__dirname, '..');
-const pythonDir = path.join(rootDir, 'servers', 'python');
-const exampleDir = path.join(pythonDir, 'example', 'fastapi');
+const exampleDir = path.resolve(__dirname, '../servers/python/example/fastapi/');
 const venvDir = path.join(exampleDir, 'build_and_test_venv');
 const isWin = process.platform === 'win32';
 const pyBin = isWin ? path.join(venvDir, 'Scripts', 'python.exe') : path.join(venvDir, 'bin', 'python');
@@ -103,7 +101,8 @@ const servers = [
                 require('fs').rmSync(venvDir, { recursive: true, force: true });
             }
             execSync(`python -m venv "${venvDir}"`);
-            execSync(`"${pyBin}" -m pip install --quiet -e "${pythonDir}[test]"`);
+            const pythonServerDir = path.resolve(__dirname, '../servers/python');
+            execSync(`"${pyBin}" -m pip install --quiet -e "${pythonServerDir}[test]"`);
         },
         cmd: pyBin,
         args: ['server.py'],
@@ -158,10 +157,8 @@ async function testServer(serverConfig) {
             return;
         }
 
-        const procOptions = { cwd: serverConfig.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] };
+        const procOptions = { cwd: serverConfig.cwd, env, stdio: 'ignore' };
         const serverProc = spawn(serverConfig.cmd, serverConfig.args, procOptions);
-        serverProc.stdout.on('data', d => process.stdout.write(`[${serverConfig.name}] ${d}`));
-        serverProc.stderr.on('data', d => process.stderr.write(`[${serverConfig.name}] ${d}`));
 
         let passed = false;
 
