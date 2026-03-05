@@ -38,8 +38,11 @@ build-py-server:
 	mkdir -p build/py-server
 	cp -r servers/python/dist/*.whl build/py-server/
 
-# Ensure client-js is built before running e2e tests, since tests load dist/bundle.min.js
+# Ensure client-js is built and servers/js deps are installed before running e2e tests.
+# tests/e2e.js requires argon2 directly from servers/js/node_modules.
 test: build-client
+	@echo "Installing JS server dependencies for test runner..."
+	cd servers/js && npm install
 	@echo "Running Unified E2E Tests..."
 	node tests/e2e.js
 
