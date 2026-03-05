@@ -106,9 +106,9 @@ const servers = [
             execSync(`"${pyBin}" -m pip install --quiet -e "${pythonDir}[test]"`);
         },
         cmd: pyBin,
-        args: ['-m', 'uvicorn', 'server:app', '--host', '127.0.0.1', '--port', '8081'],
+        args: ['server.py'],
         cwd: exampleDir,
-        env: { PYTHONPATH: exampleDir },
+        env: { PORT: '8081' },
         port: 8081,
         bootTime: 12000,
         teardown: () => {
