@@ -22,10 +22,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-          cache-dependency-path: |
-            client-js/package-lock.json
-            servers/js/package-lock.json
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -35,28 +31,31 @@ jobs:
       - name: Set up Rust (stable)
         uses: dtolnay/rust-toolchain@stable
 
-      # ── Cargo cache ───────────────────────────────────────────────────────────
-      - name: Cache Cargo registry + build
+      # ── Cargo cache (only ~/.cargo — target/ doesn't exist on fresh checkout)
+      - name: Cache Cargo registry
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            servers/rust/target
-            servers/rust/example/axum_server/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('servers/rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      # ── npm install (pre-warm, make test will re-run but cache speeds things up)
-      - name: Install client-js dependencies
-        run: npm ci
-        working-directory: client-js
+      # ── npm caches ────────────────────────────────────────────────────────────
+      - name: Cache client-js node_modules
+        uses: actions/cache@v4
+        with:
+          path: client-js/node_modules
+          key: ${{ runner.os }}-client-js-${{ hashFiles('client-js/package-lock.json') }}
 
-      - name: Install servers/js dependencies
-        run: npm ci
-        working-directory: servers/js
+      - name: Cache servers/js node_modules
+        uses: actions/cache@v4
+        with:
+          path: servers/js/node_modules
+          key: ${{ runner.os }}-servers-js-${{ hashFiles('servers/js/package-lock.json') }}
 
       # ── Run the full test suite ───────────────────────────────────────────────
       - name: Run unified E2E tests (make test)
         run: make test
+
