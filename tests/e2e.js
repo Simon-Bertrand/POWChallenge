@@ -109,7 +109,7 @@ const servers = [
         cwd: pythonDir,
         env: {},
         port: 8081,
-        bootTime: 5000,
+        bootTime: 12000,
         teardown: () => {
             console.log("Destroying Python virtual environment...");
             if (require('fs').existsSync(venvDir)) {
@@ -137,7 +137,7 @@ const servers = [
         cwd: path.resolve(__dirname, '../servers/js/example/express/'),
         env: {},
         port: 8083,
-        bootTime: 4000
+        bootTime: 12000
     }
 ];
 
