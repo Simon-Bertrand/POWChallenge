@@ -97,12 +97,27 @@ const servers = [
         name: "Python FastAPI",
         setup: async () => {
             console.log("Setting up Python virtual environment...");
+            console.log(`Debug: venvDir=${venvDir}`);
+            console.log(`Debug: pythonDir=${pythonDir}`);
+            console.log(`Debug: exampleDir=${exampleDir}`);
             const { execSync } = require('child_process');
             if (require('fs').existsSync(venvDir)) {
                 require('fs').rmSync(venvDir, { recursive: true, force: true });
             }
             execSync(`python -m venv "${venvDir}"`);
+            console.log(`Debug: pyBin=${pyBin}`);
+            console.log(`Debug: exampleDir content=${require('fs').readdirSync(exampleDir).join(', ')}`);
             execSync(`"${pyBin}" -m pip install --quiet -e "${pythonDir}[test]"`);
+            console.log("Verifying server import...");
+            try {
+                execSync(`"${pyBin}" -c "import server"`, { cwd: exampleDir });
+                console.log("Server import successful.");
+            } catch (e) {
+                console.error("Server import FAILED. Traceback:");
+                console.error(e.stdout?.toString());
+                console.error(e.stderr?.toString());
+                throw e;
+            }
         },
         cmd: pyBin,
         args: ['-m', 'uvicorn', 'server:app', '--port', '8081'],
