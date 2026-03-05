@@ -59,6 +59,13 @@ jobs:
           path: servers/js/example/express/node_modules
           key: ${{ runner.os }}-express-${{ hashFiles('servers/js/example/express/package-lock.json', 'servers/js/package-lock.json') }}
 
+      # ── Pre-build: JS server library (dist/ is gitignored, must be compiled) ──
+      # Without this, require('powchallenge_server') in the Express example crashes
+      # immediately because dist/index.js doesn't exist.
+      - name: Pre-build JS server library
+        run: npm install && npm run build
+        working-directory: servers/js
+
       # ── Pre-build: Rust axum example ──────────────────────────────────────────
       # Without this, `cargo run` inside e2e.js would compile from scratch,
       # taking 3-5 minutes — far beyond the 12-second boot timeout.

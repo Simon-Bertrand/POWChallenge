@@ -157,8 +157,10 @@ async function testServer(serverConfig) {
             return;
         }
 
-        const procOptions = { cwd: serverConfig.cwd, env };
+        const procOptions = { cwd: serverConfig.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] };
         const serverProc = spawn(serverConfig.cmd, serverConfig.args, procOptions);
+        serverProc.stdout.on('data', d => process.stdout.write(`[${serverConfig.name}] ${d}`));
+        serverProc.stderr.on('data', d => process.stderr.write(`[${serverConfig.name}] ${d}`));
 
         let passed = false;
 
