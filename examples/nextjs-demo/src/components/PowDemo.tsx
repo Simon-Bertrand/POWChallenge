@@ -42,7 +42,16 @@ export default function PowDemo() {
             // 2. Mine the PoW in a background thread (non-blocking)
             const t0 = Date.now();
             const challengeBytes = base64ToBytes(challengeData.challenge);
-            const validNonceBytes = await minePOWWithWorker(challengeBytes, challengeData.difficulty);
+
+            // Example of using the dynamic CDN URL
+            // In a real app, you might use: setArgon2CDN('/argon2-bundled.min.js')
+            // or pass it via options:
+            const useLocalCDN = (window as any).useLocalCDN === true;
+            const options = useLocalCDN ? {
+                argon2CDN: '/argon2-bundled.min.js' // Assuming it was in public/
+            } : undefined;
+
+            const validNonceBytes = await minePOWWithWorker(challengeBytes, challengeData.difficulty, options);
             console.log(`PoW Solved in ${Date.now() - t0}ms`);
 
             // 3. Submit proof
@@ -80,6 +89,11 @@ export default function PowDemo() {
             <p className="text-gray-600">
                 This demo shows the Argon2id Proof-of-Work system working in Next.js.
             </p>
+
+            <div className="text-xs text-gray-400 bg-gray-50 p-2 rounded border border-gray-100 mb-4">
+                <p><strong>Config:</strong> Dynamic CDN now supported.</p>
+                <p className="mt-1">Worker will use {(typeof window !== 'undefined' && (window as any).useLocalCDN) ? '/argon2-bundled.min.js' : 'jsDelivr CDN'}</p>
+            </div>
 
             <div className="flex flex-col space-y-2">
                 <button

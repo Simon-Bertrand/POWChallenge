@@ -15,7 +15,12 @@ const ARGON2_HASH_LEN = 32;
 const ARGON2_TYPE = 2;          // ArgonType.Argon2id
 
 // CDN URL used by the Web Worker (cannot bundle WASM inside a Worker blob)
-const ARGON2_CDN = 'https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/dist/argon2-bundled.min.js';
+let ARGON2_CDN = 'https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/dist/argon2-bundled.min.js';
+
+/** Set a custom URL for the Argon2 bundle (e.g., local /public/ path) */
+export function setArgon2CDN(url: string): void {
+    ARGON2_CDN = url;
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Cross-platform WASM loading
@@ -151,8 +156,9 @@ class ProofOfWork {
 // Web Worker inline script (off-loads mining to a separate thread)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const workerScript = `
-importScripts('${ARGON2_CDN}');
+function getWorkerScript(cdnUrl: string): string {
+    return `
+importScripts('${cdnUrl}');
 const ARGON2_TIME=${ARGON2_TIME},ARGON2_MEM=${ARGON2_MEM},ARGON2_PARALLELISM=${ARGON2_PARALLELISM},ARGON2_HASH_LEN=${ARGON2_HASH_LEN},ARGON2_TYPE=${ARGON2_TYPE};
 async function argon2id(nonce,challenge){
     return (await argon2.hash({pass:nonce,salt:challenge,time:ARGON2_TIME,mem:ARGON2_MEM,hashLen:ARGON2_HASH_LEN,parallelism:ARGON2_PARALLELISM,type:ARGON2_TYPE})).hash;
@@ -170,13 +176,20 @@ self.onmessage=async function(e){
     catch(err){self.postMessage({id,error:err.message||String(err),success:false});}
 };
 `;
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Public API
 // ──────────────────────────────────────────────────────────────────────────────
 
+/** Options for PoW mining */
+export interface MineOptions {
+    /** Custom CDN URL for Argon2 bundle */
+    argon2CDN?: string;
+}
+
 /** Mine using a Web Worker when available; falls back to main thread. */
-export async function minePOWWithWorker(challenge: Uint8Array, difficulty: number): Promise<Uint8Array> {
+export async function minePOWWithWorker(challenge: Uint8Array, difficulty: number, options?: MineOptions): Promise<Uint8Array> {
     if (typeof window === 'undefined' || !window.Worker) {
         const pow = new ProofOfWork();
         const nonce = new Uint8Array(32);
@@ -185,7 +198,8 @@ export async function minePOWWithWorker(challenge: Uint8Array, difficulty: numbe
         return pow.minePOW(challenge, nonce, difficulty);
     }
     return new Promise<Uint8Array>((resolve, reject) => {
-        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        const cdnUrl = options?.argon2CDN || ARGON2_CDN;
+        const blob = new Blob([getWorkerScript(cdnUrl)], { type: 'application/javascript' });
         const workerUrl = URL.createObjectURL(blob);
         const worker = new Worker(workerUrl);
         const nonce = new Uint8Array(32);
@@ -218,6 +232,7 @@ export async function minePOWWithWorker(challenge: Uint8Array, difficulty: numbe
 interface WebCryptoHashNamespace {
     ProofOfWork: typeof ProofOfWork;
     minePOWWithWorker: typeof minePOWWithWorker;
+    setArgon2CDN: typeof setArgon2CDN;
     ARGON2_CDN: string;
     ARGON2_TIME: number;
     ARGON2_MEM: number;
@@ -234,6 +249,7 @@ const globalScope = (
 globalScope.WebCryptoHash = {
     ProofOfWork,
     minePOWWithWorker,
+    setArgon2CDN,
     ARGON2_CDN,
     ARGON2_TIME,
     ARGON2_MEM,
