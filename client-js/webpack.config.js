@@ -7,7 +7,10 @@ module.exports = {
     output: {
         filename: 'bundle.min.js',
         path: path.resolve(__dirname, 'dist'),
-        iife: true,
+        library: {
+            name: 'powchallenge_client',
+            type: 'umd',
+        },
         globalObject: 'this',
     },
     resolve: {

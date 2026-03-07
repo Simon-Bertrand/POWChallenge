@@ -176,7 +176,7 @@ self.onmessage=async function(e){
 // ──────────────────────────────────────────────────────────────────────────────
 
 /** Mine using a Web Worker when available; falls back to main thread. */
-async function minePOWWithWorker(challenge: Uint8Array, difficulty: number): Promise<Uint8Array> {
+export async function minePOWWithWorker(challenge: Uint8Array, difficulty: number): Promise<Uint8Array> {
     if (typeof window === 'undefined' || !window.Worker) {
         const pow = new ProofOfWork();
         const nonce = new Uint8Array(32);

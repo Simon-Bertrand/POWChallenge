@@ -1,6 +1,6 @@
 [package]
 name = "powchallenge_server"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "Server validation library for the POW Captcha ecosystem."
 repository = "https://github.com/Simon-Bertrand/POWChallenge"
