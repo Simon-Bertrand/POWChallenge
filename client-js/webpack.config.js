@@ -19,7 +19,7 @@ module.exports = {
             fs: false,
             path: false,
             crypto: false,
-            buffer: require.resolve('buffer/'),
+            buffer: require.resolve('buffer'),
         },
     },
     plugins: [
