@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model PowChallenge {
+  req_id       String   @id
+  challenge    Bytes
+  ip           String
+  difficulty   Int
+  timestamp    DateTime
+}
+
+model PowIpActivity {
+  ip        String   @id
+  timestamp DateTime
+}
+
+model PowSubnetHistory {
+  subnet    String @id
+  count     Int    @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model PowFingerprintHistory {
+  fingerprint String @id
+  count       Int    @default(0)
+  updatedAt   DateTime @updatedAt
+}
+
+model PowGlobalSolve {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime
+}

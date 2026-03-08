@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "argon2": "^0.44.0"
+  },
+  "workspaces": [
+    "client-js",
+    "servers/js",
+    "examples/nextjs-demo"
+  ]
+}

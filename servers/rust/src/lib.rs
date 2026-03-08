@@ -74,7 +74,7 @@ pub struct CaptchaValidatedPOW {
 // ──────────────────────────────────────────────────────────────────────────────
 
 pub struct POWCaptchaServer {
-    storage: StorageBackend,
+    storage: Box<dyn StorageBackend>,
     default_difficulty: u32,
     validity_seconds: i64,
     enable_fingerprint: bool,
@@ -97,9 +97,9 @@ impl POWCaptchaServer {
 
         let max_active_challenges: usize = 10000;
 
-        let storage = if let Ok(redis_url) = std::env::var("POW_REDIS_URL") {
+        let storage: Box<dyn StorageBackend> = if let Ok(redis_url) = std::env::var("POW_REDIS_URL") {
             #[cfg(feature = "redis")]{
-                StorageBackend::Redis(
+                Box::new(
                     RedisStorage::new(&redis_url, max_active_challenges)
                         .await
                         .expect("Failed to connect to Redis"),
@@ -108,11 +108,35 @@ impl POWCaptchaServer {
             #[cfg(not(feature = "redis"))]{
                 let _ = redis_url;
                 eprintln!("[powchallenge] POW_REDIS_URL is set but the \"redis\" feature is not enabled. Falling back to MemoryStorage.");
-                StorageBackend::Memory(MemoryStorage::new(max_active_challenges))
+                Box::new(MemoryStorage::new(max_active_challenges))
             }
         } else {
-            StorageBackend::Memory(MemoryStorage::new(max_active_challenges))
+            Box::new(MemoryStorage::new(max_active_challenges))
         };
+
+        Self {
+            storage,
+            default_difficulty,
+            validity_seconds,
+            enable_fingerprint,
+            request_minimum_delay,
+            cookie_ttl,
+            server_secret: secret,
+            max_active_challenges,
+        }
+    }
+
+    pub async fn with_storage(
+        default_difficulty: u32,
+        validity_seconds: i64,
+        enable_fingerprint: bool,
+        request_minimum_delay: Option<f64>,
+        cookie_ttl: i64,
+        storage: Box<dyn StorageBackend>,
+    ) -> Self {
+        let mut secret = vec![0u8; 64];
+        rand::thread_rng().fill_bytes(&mut secret);
+        let max_active_challenges: usize = 10000;
 
         Self {
             storage,
@@ -263,7 +287,7 @@ impl POWCaptchaServer {
         let req_id = Uuid::now_v7().to_string();
 
         self.storage
-            .add_challenge(&req_id, &challenge_bytes, &ip_str, dynamic_difficulty, now, self.validity_seconds)
+            .store_challenge(&req_id, &challenge_bytes, &ip_str, dynamic_difficulty, now, self.validity_seconds)
             .await
             .map_err(|_| POWCaptchaError::ServerBusy)?;
 
@@ -293,9 +317,13 @@ impl POWCaptchaServer {
         }
 
         let state = self.storage
-            .get_and_delete_challenge(&request.req_id)
+            .fetch_challenge(&request.req_id)
             .await
             .ok_or(POWCaptchaError::ChallengeNotFoundOrExpired)?;
+
+        if !self.storage.delete_challenge(&request.req_id).await {
+            return Err(POWCaptchaError::ChallengeNotFoundOrExpired);
+        }
 
         if state.ip != ip_str {
             return Err(POWCaptchaError::ChallengeNotFoundOrExpired);

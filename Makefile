@@ -13,13 +13,13 @@ clean:
 
 build-client:
 	@echo "Building Client JS..."
-	cd client-js && npm install && npm run build
+	cd client-js && bun install && bun run build
 	mkdir -p build/js-client
 	cp -r client-js/dist/* build/js-client/
 
 build-js-server:
 	@echo "Building JS Server..."
-	cd servers/js && npm install && npm run build
+	cd servers/js && bun install && bun run build
 	mkdir -p build/js-server
 	cp -r servers/js/dist/* build/js-server/
 	cp servers/js/package.json build/js-server/ || true
@@ -43,9 +43,9 @@ build-py-server:
 # and the Express example requires servers/js/dist/index.js (gitignored, must be built).
 test: build-client
 	@echo "Building and installing JS server library..."
-	cd servers/js && npm install && npm run build
+	cd servers/js && bun install && bun run build
 	@echo "Running Unified E2E Tests..."
-	node tests/e2e.js
+	bun tests/e2e.js
 
 bump-version:
 	@if [ -z "$(V)" ]; then echo "Usage: make bump-version V=1.0.1"; exit 1; fi
@@ -55,10 +55,10 @@ publish:
 	@echo "Deploying packages to npm, PyPI, and crates.io..."
 	@echo "----------------------------------------"
 	@echo "Publishing client-js to npm..."
-	cd client-js && npm i && npm run build && npm publish --access public
+	cd client-js && bun i && bun run build && npm publish --access public
 	@echo "----------------------------------------"
 	@echo "Publishing servers/js to npm..."
-	cd servers/js && npm i && npm run build && npm publish --access public
+	cd servers/js && bun i && bun run build && npm publish --access public
 	@echo "----------------------------------------"
 	@echo "Publishing servers/python to PyPI..."
 	cd servers/python && rm -rf dist/ build/ *.egg-info && python -m build && python -m twine upload dist/*

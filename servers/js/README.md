@@ -8,12 +8,10 @@ A high-performance Proof-of-Work (PoW) CAPTCHA server library for the Node.js ec
 * **Pluggable Storage**: Uses in-memory mapping by default, scales horizontally with Redis for clusters or Kubernetes environments.
 * **Zero-Interaction Security**: Verify challenges completely in the background without frustrating users.
 
-## Installation
-
-Install via npm, yarn, or pnpm:
+Install via bun:
 
 ```bash
-npm install powchallenge_server
+bun add powchallenge_server
 ```
 
 ## How to Use

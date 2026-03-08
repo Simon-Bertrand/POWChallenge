@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['ioredis'],
+  serverExternalPackages: ['ioredis', 'argon2', 'powchallenge_server'],
+  turbopack: {},
   webpack: (config, { isServer }) => {
     config.experiments = {
       ...config.experiments,
@@ -14,6 +15,10 @@ const nextConfig: NextConfig = {
       test: /\.wasm$/,
       type: 'asset/resource',
     });
+
+    if (isServer) {
+      config.externals = [...(config.externals || []), 'argon2', 'powchallenge_server'];
+    }
 
     return config;
   },

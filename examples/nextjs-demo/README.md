@@ -5,16 +5,29 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
 bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Prisma Setup
+
+Before running the development server for the first time, you need to set up the Prisma database:
+
+1.  **Initialize Prisma (SQLite):**
+    ```bash
+    bunx prisma init --datasource-provider sqlite
+    ```
+
+2.  **Push the database schema:**
+    ```bash
+    bunx prisma db push
+    ```
+
+3.  **Generate Prisma Client:**
+    ```bash
+    bunx prisma generate
+    ```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

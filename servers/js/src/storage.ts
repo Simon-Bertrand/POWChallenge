@@ -28,9 +28,10 @@ interface RedisSerializedState {
  * All storage back-ends must implement this interface.
  * No `any` is permitted; all returns are fully typed.
  */
-export interface Storage {
-    add_challenge(req_id: string, challenge_bytes: Buffer, ip: string, difficulty: number, timestamp: Date, validity_seconds: number): Promise<void>;
-    get_and_delete_challenge(req_id: string): Promise<ChallengeState | null>;
+export interface StorageBackend {
+    store_challenge(req_id: string, challenge_bytes: Buffer, ip: string, difficulty: number, timestamp: Date, validity_seconds: number): Promise<void>;
+    fetch_challenge(req_id: string): Promise<ChallengeState | null>;
+    delete_challenge(req_id: string): Promise<boolean>;
     count_challenges(): Promise<number>;
     is_ip_active(ip: string): Promise<boolean>;
     increment_subnet_history(subnet: string): Promise<void>;
@@ -45,7 +46,7 @@ export interface Storage {
 // In-memory implementation
 // ──────────────────────────────────────────────────────────────────────────────
 
-export class MemoryStorage implements Storage {
+export class MemoryStorage implements StorageBackend {
     private readonly active_challenges: Map<string, ChallengeState> = new Map();
     private readonly active_ips: Set<string> = new Set();
     private readonly fingerprint_history: Map<string, number> = new Map();
@@ -74,7 +75,7 @@ export class MemoryStorage implements Storage {
         }
     }
 
-    async add_challenge(req_id: string, challenge_bytes: Buffer, ip: string, difficulty: number, timestamp: Date, validity_seconds: number): Promise<void> {
+    async store_challenge(req_id: string, challenge_bytes: Buffer, ip: string, difficulty: number, timestamp: Date, validity_seconds: number): Promise<void> {
         this.cleanup_expired(validity_seconds);
         if (this.active_challenges.size >= this.max_challenges) {
             throw new Error('Server busy');
@@ -83,13 +84,18 @@ export class MemoryStorage implements Storage {
         this.active_ips.add(ip);
     }
 
-    async get_and_delete_challenge(req_id: string): Promise<ChallengeState | null> {
+    async fetch_challenge(req_id: string): Promise<ChallengeState | null> {
+        return this.active_challenges.get(req_id) ?? null;
+    }
+
+    async delete_challenge(req_id: string): Promise<boolean> {
         const state = this.active_challenges.get(req_id) ?? null;
         if (state) {
             this.active_challenges.delete(req_id);
             this.active_ips.delete(state.ip);
+            return true;
         }
-        return state;
+        return false;
     }
 
     async count_challenges(): Promise<number> {
@@ -156,7 +162,7 @@ end
 return false
 `;
 
-export class RedisStorage implements Storage {
+export class RedisStorage implements StorageBackend {
     private readonly redis: Redis;
     public max_challenges: number;
     private readonly prefix = 'pow_captcha:';
@@ -172,7 +178,7 @@ export class RedisStorage implements Storage {
         return this.redis.zcard(`${this.prefix}active_challenges_zset`);
     }
 
-    async add_challenge(req_id: string, challenge_bytes: Buffer, ip: string, difficulty: number, timestamp: Date, validity_seconds: number): Promise<void> {
+    async store_challenge(req_id: string, challenge_bytes: Buffer, ip: string, difficulty: number, timestamp: Date, validity_seconds: number): Promise<void> {
         const state: RedisSerializedState = {
             challenge: challenge_bytes.toString('hex'),
             ip,
@@ -186,11 +192,24 @@ export class RedisStorage implements Storage {
         await pipeline.exec();
     }
 
-    async get_and_delete_challenge(req_id: string): Promise<ChallengeState | null> {
+    async fetch_challenge(req_id: string): Promise<ChallengeState | null> {
+        const req_key = `${this.prefix}req:${req_id}`;
+        const raw = await this.redis.get(req_key);
+        if (!raw) return null;
+        const state: RedisSerializedState = JSON.parse(raw);
+        return {
+            challenge: Buffer.from(state.challenge, 'hex'),
+            ip: state.ip,
+            timestamp: new Date(state.timestamp),
+            difficulty: state.difficulty,
+        };
+    }
+
+    async delete_challenge(req_id: string): Promise<boolean> {
         // Atomic get-and-delete via Lua script (fixes SEC-1 replay-attack race)
         const req_key = `${this.prefix}req:${req_id}`;
         const raw = await this.redis.eval(LUA_GET_AND_DELETE, 1, req_key) as string | null;
-        if (!raw) return null;
+        if (!raw) return false;
 
         const state: RedisSerializedState = JSON.parse(raw);
 
@@ -199,13 +218,7 @@ export class RedisStorage implements Storage {
         pipeline.del(`${this.prefix}ip:${state.ip}`);
         pipeline.zrem(`${this.prefix}active_challenges_zset`, req_id);
         await pipeline.exec();
-
-        return {
-            challenge: Buffer.from(state.challenge, 'hex'),
-            ip: state.ip,
-            timestamp: new Date(state.timestamp),
-            difficulty: state.difficulty,
-        };
+        return true;
     }
 
     async is_ip_active(ip: string): Promise<boolean> {

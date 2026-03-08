@@ -220,7 +220,7 @@ class POWCaptchaServer:
         req_id = str(uuid7())
 
         try:
-            await self._storage.add_challenge(
+            await self._storage.store_challenge(
                 req_id,
                 challenge_bytes,
                 ip_str,
@@ -246,10 +246,15 @@ class POWCaptchaServer:
         query_start = datetime.now(timezone.utc)
         ip_str = str(client_ip)
 
-        state: ChallengeState | None = await self._storage.get_and_delete_challenge(
+        state: ChallengeState | None = await self._storage.fetch_challenge(
             str(request.req_id)
         )
+
         if state is None:
+            raise ChallengeNotFoundOrExpired()
+
+        deleted = await self._storage.delete_challenge(str(request.req_id))
+        if not deleted:
             raise ChallengeNotFoundOrExpired()
 
         if state["ip"] != ip_str:

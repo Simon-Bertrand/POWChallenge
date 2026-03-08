@@ -9,6 +9,7 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "require": "./dist/bundle.min.js",
       "default": "./dist/bundle.min.js"
     }

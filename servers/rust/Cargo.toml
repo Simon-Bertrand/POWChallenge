@@ -31,3 +31,4 @@ parking_lot = "0.12"
 constant_time_eq = "0.3"
 hmac = "0.12"
 redis = { version = "0.24", features = ["tokio-comp"], optional = true }
+async-trait = "0.1.89"

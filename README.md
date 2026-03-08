@@ -141,6 +141,14 @@ POW Captcha ships with two first-class state adapters:
 
 ---
 
+## 📚 Documentation
+
+For more detailed information on how to extend and customize POW Captcha, check out the following guides:
+
+*   [Implementing a Prisma Storage Backend](file:///b:/dev/repos/code/Simple-PoW-Captcha/docs/storage/prisma.md): A comprehensive guide on creating a secure, database-backed storage adapter.
+
+---
+
 ## ⚖️ Real-World Trade-offs & Considerations
 
 While POW Captcha offers unparalleled security against botnets, architectural transparency is critical when deploying to production:

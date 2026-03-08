@@ -7,12 +7,10 @@ The companion client-side library for the POW Captcha ecosystem. It handles the 
 * **Web Worker Orchestration**: Automatically spawns and manages background threads to perform heavy cryptographic operations.
 * **Pre-compiled WebAssembly**: Utilizes hyper-optimized WASM Argon2id bindings internally to maximize solving speed.
 
-## Installation
-
-Install via npm, yarn, or pnpm:
+Install via bun:
 
 ```bash
-npm install powchallenge_client
+bun add powchallenge_client
 ```
 
 ## How to Use

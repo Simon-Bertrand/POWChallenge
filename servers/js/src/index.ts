@@ -2,7 +2,8 @@ import * as crypto from 'crypto';
 import * as argon2 from 'argon2';
 import { v7 as uuidv7 } from 'uuid';
 import { Address4, Address6 } from 'ip-address';
-import { Storage, MemoryStorage, RedisStorage, ChallengeState } from './storage';
+import { StorageBackend, MemoryStorage, RedisStorage, ChallengeState } from './storage';
+export { StorageBackend, MemoryStorage, RedisStorage, ChallengeState };
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Argon2id parameters — must stay in sync with client-js and all other servers
@@ -74,12 +75,13 @@ export interface CaptchaValidatedPOW {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export class POWCaptchaServer {
-    private readonly storage: Storage;
+    private readonly storage: StorageBackend;
     private readonly default_difficulty: number;
     private readonly validity_seconds: number;
     private readonly enable_fingerprint: boolean;
     private readonly request_minimum_delay: number | null;
     private readonly cookie_ttl: number;
+    private readonly enable_dynamic_difficulty: boolean;
     private readonly server_secret: Buffer;
     private max_active_challenges: number;
 
@@ -89,19 +91,26 @@ export class POWCaptchaServer {
         enable_fingerprint = false,
         request_minimum_delay: number | null = null,
         cookie_ttl = 3600,
+        storage?: StorageBackend,
+        enable_dynamic_difficulty = true
     ) {
         this.default_difficulty = default_difficulty;
         this.validity_seconds = validity_seconds;
         this.enable_fingerprint = enable_fingerprint;
         this.request_minimum_delay = request_minimum_delay;
         this.cookie_ttl = cookie_ttl;
+        this.enable_dynamic_difficulty = enable_dynamic_difficulty;
         this.server_secret = crypto.randomBytes(64);
         this.max_active_challenges = 10000;
 
-        const redis_url = process.env['POW_REDIS_URL'];
-        this.storage = redis_url
-            ? new RedisStorage(redis_url, this.max_active_challenges)
-            : new MemoryStorage(this.max_active_challenges);
+        if (storage) {
+            this.storage = storage;
+        } else {
+            const redis_url = process.env['POW_REDIS_URL'];
+            this.storage = redis_url
+                ? new RedisStorage(redis_url, this.max_active_challenges)
+                : new MemoryStorage(this.max_active_challenges);
+        }
     }
 
     /** Update the cap on simultaneous in-flight challenges. Propagates to storage. */
@@ -192,16 +201,23 @@ export class POWCaptchaServer {
         if (await this.storage.count_challenges() >= this.max_active_challenges) throw new ServerBusy();
 
         let dynamic_difficulty = this.default_difficulty;
-        const subnet_prefix = POWCaptchaServer.get_subnet_prefix(client_ip);
-        dynamic_difficulty += Math.floor((await this.storage.get_subnet_history(subnet_prefix)) / 5);
 
-        if (this.enable_fingerprint && fingerprint) {
-            dynamic_difficulty += Math.floor((await this.storage.get_fingerprint_history(fingerprint)) / 5);
-        }
+        if (this.enable_dynamic_difficulty) {
+            const subnet_prefix = POWCaptchaServer.get_subnet_prefix(client_ip);
+            const subnet_history = await this.storage.get_subnet_history(subnet_prefix);
+            const subnet_boost = Math.floor(subnet_history / 5);
+            dynamic_difficulty += subnet_boost;
 
-        const recent_global = await this.storage.get_recent_global_solves_count(60);
-        if (recent_global > 50) {
-            dynamic_difficulty += Math.floor((recent_global - 50) / 10);
+            if (this.enable_fingerprint && fingerprint) {
+                const fp_history = await this.storage.get_fingerprint_history(fingerprint);
+                dynamic_difficulty += Math.floor(fp_history / 5);
+            }
+
+            const recent_global = await this.storage.get_recent_global_solves_count(300);
+            const global_boost = recent_global > 1000 ? Math.floor((recent_global - 1000) / 50) : 0;
+            dynamic_difficulty += global_boost;
+
+            console.log(`[POW] IP: ${client_ip} Subnet: ${subnet_prefix} History: ${subnet_history} (Boost: ${subnet_boost}) Global: ${recent_global} (Boost: ${global_boost}) Base: ${this.default_difficulty} Final: ${dynamic_difficulty}`);
         }
 
         const ip_salt = crypto.createHash('sha256').update(client_ip).update(this.server_secret).digest();
@@ -209,7 +225,7 @@ export class POWCaptchaServer {
         const req_id = uuidv7();
 
         try {
-            await this.storage.add_challenge(req_id, challenge_bytes, client_ip, dynamic_difficulty, now, this.validity_seconds);
+            await this.storage.store_challenge(req_id, challenge_bytes, client_ip, dynamic_difficulty, now, this.validity_seconds);
         } catch {
             throw new ServerBusy();
         }
@@ -231,8 +247,12 @@ export class POWCaptchaServer {
             throw new InvalidProofOfWork();
         }
 
-        const state: ChallengeState | null = await this.storage.get_and_delete_challenge(request.req_id);
+        const state: ChallengeState | null = await this.storage.fetch_challenge(request.req_id);
         if (!state) throw new ChallengeNotFoundOrExpired();
+
+        const deleted = await this.storage.delete_challenge(request.req_id);
+        if (!deleted) throw new ChallengeNotFoundOrExpired();
+
         if (state.ip !== client_ip) throw new ChallengeNotFoundOrExpired();
         if ((Date.now() - state.timestamp.getTime()) / 1000 > this.validity_seconds) throw new ChallengeNotFoundOrExpired();
         if (request.difficulty !== state.difficulty) throw new DifficultyMismatch();

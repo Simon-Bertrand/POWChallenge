@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model PowChallenge {
+  req_id       String   @id
+  challenge    Bytes
+  ip           String
+  difficulty   Int
+  timestamp    DateTime
+  @@index([timestamp])
+}
+
+model PowIpActivity {
+  ip        String   @id
+  timestamp DateTime
+  @@index([timestamp])
+}
+
+model PowSubnetHistory {
+  subnet    String @id
+  count     Int    @default(0)
+  updatedAt DateTime @updatedAt
+  @@index([updatedAt])
+}
+
+model PowFingerprintHistory {
+  fingerprint String @id
+  count       Int    @default(0)
+  updatedAt   DateTime @updatedAt
+  @@index([updatedAt])
+}
+
+model PowGlobalSolve {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime
+  @@index([timestamp])
+}

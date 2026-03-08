@@ -31,7 +31,7 @@ class ChallengeState(TypedDict):
 
 @runtime_checkable
 class StorageBackend(Protocol):
-    async def add_challenge(
+    async def store_challenge(
         self,
         req_id: str,
         challenge_bytes: bytes,
@@ -41,7 +41,9 @@ class StorageBackend(Protocol):
         validity_seconds: int,
     ) -> None: ...
 
-    async def get_and_delete_challenge(self, req_id: str) -> Optional[ChallengeState]: ...
+    async def fetch_challenge(self, req_id: str) -> Optional[ChallengeState]: ...
+    async def delete_challenge(self, req_id: str) -> bool: ...
+
     async def count_challenges(self) -> int: ...
     async def is_ip_active(self, ip: str) -> bool: ...
     async def increment_subnet_history(self, subnet: str) -> None: ...
@@ -77,7 +79,7 @@ class MemoryStorage:
             if state:
                 self._active_ips.discard(state["ip"])
 
-    async def add_challenge(
+    async def store_challenge(
         self,
         req_id: str,
         challenge_bytes: bytes,
@@ -97,11 +99,15 @@ class MemoryStorage:
         }
         self._active_ips.add(ip)
 
-    async def get_and_delete_challenge(self, req_id: str) -> Optional[ChallengeState]:
+    async def fetch_challenge(self, req_id: str) -> Optional[ChallengeState]:
+        return self._active_challenges.get(req_id)
+
+    async def delete_challenge(self, req_id: str) -> bool:
         state = self._active_challenges.pop(req_id, None)
         if state:
             self._active_ips.discard(state["ip"])
-        return state
+            return True
+        return False
 
     async def count_challenges(self) -> int:
         return len(self._active_challenges)
@@ -176,7 +182,7 @@ try:
             result: int = await self._r.zcard(f"{self._prefix}active_challenges_zset")
             return result
 
-        async def add_challenge(
+        async def store_challenge(
             self,
             req_id: str,
             challenge_bytes: bytes,
@@ -204,25 +210,32 @@ try:
                 )
                 await pipe.execute()
 
-        async def get_and_delete_challenge(self, req_id: str) -> Optional[ChallengeState]:
-            """Atomic get-and-delete via Lua script (prevents replay-attack race)."""
+        async def fetch_challenge(self, req_id: str) -> Optional[ChallengeState]:
             req_key = f"{self._prefix}req:{req_id}"
-            raw: Optional[bytes] = await self._script_get_del(keys=[req_key])
+            raw: Optional[bytes] = await self._r.get(req_key)
             if not raw:
                 return None
-
             state_dict: dict = json.loads(raw)
-
-            # Clean up ancillary keys (non-critical; best-effort)
-            await self._r.delete(f"{self._prefix}ip:{state_dict['ip']}")
-            await self._r.zrem(f"{self._prefix}active_challenges_zset", req_id)
-
             return ChallengeState(
                 challenge=bytes.fromhex(state_dict["challenge"]),
                 ip=state_dict["ip"],
                 timestamp=datetime.fromisoformat(state_dict["timestamp"]),
                 difficulty=int(state_dict["difficulty"]),
             )
+
+        async def delete_challenge(self, req_id: str) -> bool:
+            """Atomic get-and-delete via Lua script (prevents replay-attack race)."""
+            req_key = f"{self._prefix}req:{req_id}"
+            raw: Optional[bytes] = await self._script_get_del(keys=[req_key])
+            if not raw:
+                return False
+
+            state_dict: dict = json.loads(raw)
+
+            # Clean up ancillary keys (non-critical; best-effort)
+            await self._r.delete(f"{self._prefix}ip:{state_dict['ip']}")
+            await self._r.zrem(f"{self._prefix}active_challenges_zset", req_id)
+            return True
 
         async def is_ip_active(self, ip: str) -> bool:
             result: int = await self._r.exists(f"{self._prefix}ip:{ip}")

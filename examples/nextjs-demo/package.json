@@ -6,12 +6,17 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:clear": "bun run scripts/clear-db.ts"
   },
   "dependencies": {
+    "@prisma/client": "^5",
     "next": "16.1.6",
-    "powchallenge_client": "^1.0.1",
-    "powchallenge_server": "^1.0.1",
+    "powchallenge_client": "workspace:*",
+    "powchallenge_server": "workspace:*",
+    "argon2": "^0.44.0",
+    "detect-libc": "^2.1.2",
+    "prisma": "^5",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
