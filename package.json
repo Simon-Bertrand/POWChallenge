@@ -8,7 +8,6 @@
   },
   "workspaces": [
     "client-js",
-    "servers/js",
-    "examples/nextjs-demo"
+    "servers/js"
   ]
 }

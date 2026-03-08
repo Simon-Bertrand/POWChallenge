@@ -12,8 +12,8 @@
   "dependencies": {
     "@prisma/client": "^5",
     "next": "16.1.6",
-    "powchallenge_client": "workspace:*",
-    "powchallenge_server": "workspace:*",
+    "powchallenge_client": "^1.0.3",
+    "powchallenge_server": "^1.0.3",
     "argon2": "^0.44.0",
     "detect-libc": "^2.1.2",
     "prisma": "^5",
