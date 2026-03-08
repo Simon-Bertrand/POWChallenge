@@ -1,6 +1,6 @@
 [project]
 name = "powchallenge_server"
-version = "1.0.2"
+version = "1.0.3"
 description = "Server validation library for the POW Captcha ecosystem."
 readme = "README.md"
 requires-python = ">=3.10"

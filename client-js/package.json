@@ -1,6 +1,6 @@
 {
   "name": "powchallenge_client",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "POW Captcha client library using Argon2id (WASM)",
   "main": "dist/bundle.min.js",
   "types": "dist/index.d.ts",

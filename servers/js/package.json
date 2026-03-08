@@ -1,6 +1,6 @@
 {
   "name": "powchallenge_server",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Server validation library for the POW Captcha ecosystem.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
