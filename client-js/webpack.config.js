@@ -19,8 +19,14 @@ module.exports = {
             fs: false,
             path: false,
             crypto: false,
+            buffer: require.resolve('buffer/'),
         },
     },
+    plugins: [
+        new webpack.ProvidePlugin({
+            Buffer: ['buffer', 'Buffer'],
+        }),
+    ],
     module: {
         rules: [
             {
